@@ -1,0 +1,85 @@
+while learning about the diffusion models, I found that they generated noise free image starting from noisy image.
+These model works by iterative subtracting the predicted nosiy from the given noisy image. And repeating this step multiple time and end up with noise free image.
+
+At the time of training, noise free image is given to the model, it then add noise to this image at each iteration, we then pass this image to reverse diffusion model which takes this noisy image and predicts an output image, we then calculate the MSE loss for each pixel value and compare whether it actuall improved or not by comparing it with the actuall added noise.
+
+resources: https://diffusion.csail.mit.edu/2025/index.html
+
+Algorithm:
+    Training:
+
+model = load_unet_model()
+T = K
+
+# ✅ RIGHT IDEA but wrong placement — precompute ONCE before training,
+# not inside the epoch loop. Also np.linspace needs 3 args.
+betas = np.linspace(beta_start, beta_end, T)   # shape: (T,)
+alphas = 1 - betas                              # shape: (T,)
+alpha_bars = np.cumprod(alphas)                 # ← THIS is ᾱ_t, the cumulative product
+
+for each_epoch in range(total_epochs):
+    x0 = randomly_chosen_image(dataset)
+    t  = np.random.randint(0, T)
+
+    # BUG 1: np.random.random → samples Uniform(0,1), NOT Gaussian!
+    # You need N(0,I) which is np.random.randn
+    epsilon = np.random.randn(*x0.shape)        # ✅ ε ~ N(0, I)
+
+    # BUG 2 (CONCEPTUAL): The inner for-loop over betas must not exist.
+    # You already sampled ONE t above. You don't iterate — you just
+    # index into the precomputed alpha_bars array directly.
+    # for beta in betas:          ← DELETE THIS ENTIRE LOOP
+    #     alpha_t = 1 - beta      ← this is α_t (single step), NOT ᾱ_t
+    #     xt = ...                ← wrong variable, wrong formula
+
+    # BUG 3: Must use alpha_bars[t] (ᾱ_t, cumulative product)
+    # NOT alpha_t (= 1 - β_t, just one step)
+    alpha_bar_t = alpha_bars[t]                 # ✅ look up precomputed ᾱ_t
+    xt = np.sqrt(alpha_bar_t) * x0  \
+       + np.sqrt(1 - alpha_bar_t)   * epsilon  # ✅ one-shot, no loop
+
+    # BUG 4: model never receives t — but t is essential!
+    # The U-Net uses t as a timestep embedding to know HOW noisy x_t is.
+    # Without t, the model sees the same input for t=1 and t=999 —
+    # it has no way to calibrate how much noise to predict.
+    epsilon_predicted = model.predict(xt, t)    # ✅ always pass t
+
+    loss = mean_squared_error(epsilon_predicted, epsilon)
+    optimizer.step(loss) 
+
+
+    Testing:
+
+# ── Precomputed schedule (IDENTICAL to training — must match exactly) ──
+betas      = np.linspace(beta_start, beta_end, T)
+alphas     = 1 - betas
+alpha_bars = np.cumprod(alphas)
+
+# ── Step 1: start from PURE GAUSSIAN NOISE (the opposite of training) ─
+xt = np.random.randn(*image_shape)     # x_T ~ N(0, I), shape same as x0
+
+# ── Step 2: reverse loop T → 0 (opposite direction to forward process) ─
+for t in reversed(range(T)):           # t = T-1, T-2, T-3, ..., 1, 0
+
+    # Look up precomputed schedule values for this t
+    beta_t      = betas[t]
+    alpha_t     = alphas[t]
+    alpha_bar_t = alpha_bars[t]
+
+    # Model predicts what noise was added at this noise level
+    epsilon_predicted = model.predict(xt, t)
+
+    # Compute the denoised mean (reverse step formula from DDPM paper)
+    # μ_t = (1/√α_t) · (x_t − (β_t / √(1−ᾱ_t)) · ε_θ)
+    mean = (1 / np.sqrt(alpha_t)) * \
+           (xt - (beta_t / np.sqrt(1 - alpha_bar_t)) * epsilon_predicted)
+
+    # BUG TO AVOID: do NOT skip this if-else — adding noise on t=0 corrupts output
+    if t > 0:
+        z  = np.random.randn(*image_shape)   # z ~ N(0, I), fresh sample
+        xt = mean + np.sqrt(beta_t) * z      # stochastic step
+    else:
+        xt = mean                            # final step: no noise added
+
+x0_generated = xt                           # ← your generated image
+
