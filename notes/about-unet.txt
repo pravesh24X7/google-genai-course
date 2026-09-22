@@ -1,0 +1,35 @@
+UNET is deep learning model used for image semantic segmentation task in image analysis.
+Architecture:
+    It is consist of 2 parts: Encoder and Decoder.
+
+Encoder: Series of convolution and pooling layer that progressively downsample the input image to extract features at multiple scale.
+
+Decoder: It consist of series of convolution and upsampling layers that upsamples the feature map to original input image size.
+
+README: Find out the difference between nn.Conv2d and nn.ConvTranspose2d
+
+Code segment:
+
+
+import torch
+import segmentation_models_pytorch as smp
+
+model = smp.Unet("resnet50", encoder_weights='imagenet', classes=NO_OF_CLASSES)
+model.eval()
+
+images = torch.rand(2, 3, 256, 256)
+
+plt.imshow(np.array(images[0]))     # np.array will be of shape (1, 3, 256, 256)
+plt.axis('off')
+plt.title('image001')
+plt.show()
+
+
+with torch.inference_mode():
+    mask = model(images)
+
+
+plt.imshow(np.array(mask[0]))     # np.array will be of shape (1, 3, 256, 256)
+plt.axis('off')
+plt.title('mask001')
+plt.show()
