@@ -93,7 +93,7 @@ model.eval()
 image_shape = (32, 3, 32, 32)
 with torch.no_grad():
     
-    images_t = torch.randn_like(image_shape)
+    images_t = torch.randn(image_shape)
     generated = []
     starting_noise = images_t[0].clone()        # just for later comparison
 
