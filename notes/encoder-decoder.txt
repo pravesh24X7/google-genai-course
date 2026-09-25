@@ -1,0 +1,39 @@
+In this we learn about how encoder and decoder architecture work, we also talk about the integration of attention mechanism
+We'll cover both the attention mechanism techniques, which includes bhadnau and Luong attention.
+
+initally discovered for NMT (neural machine translation) task. goal is to convert sentences from one language to another.
+2 major problems in previous architecture is:
+    1. order in which word occurs matters
+    2. arbitary length input and outputs.
+
+because of above 2 problems we choose encoder-decoder with RNNs.
+
+execution pipeline:
+    raw_sentences  ==> tokenized sentences ==> create_vocabulary ==> numericalization ==> padding ==> batching ==> encoder training
+
+Code samples of each:
+
+
+#######################################
+raw_sentences
+#######################################
+
+corpus = """
+Hii, my name is pravesh. I'm 24 years old.
+I love to code in python, Since it is the most easiest programming language.
+I work in learningbix office, located in jaipur rajasthan.
+"""
+
+def raw_sentences(corpus: str) -> list[str]:
+    if not corpus:
+        return []
+
+    return corpus.strip().split('\n')
+
+
+######################################
+tokenized_sentences
+######################################
+
+def tokenized_sentences(raw_sentences: list[str]) -> list[list[str]]:
+    ...
